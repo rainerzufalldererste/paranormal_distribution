@@ -16,36 +16,45 @@
 
 namespace paranormal_distribution
 {
-namespace _internal
-{
-inline uint8_t reverse(const uint8_t n)
-{
-  static uint8_t lut[16] = { 0x0, 0x8, 0x4, 0xC, 0x2, 0xA, 0x6, 0xE, 0x1, 0x9, 0x5, 0xD, 0x3, 0xB, 0x7, 0xF };
-  return (lut[n & 0b1111] << 4) | lut[n >> 4];
-}
+  namespace _internal
+  {
+    inline uint8_t reverse_bits(const uint8_t n)
+    {
+      static uint8_t lut[16] = { 0x0, 0x8, 0x4, 0xC, 0x2, 0xA, 0x6, 0xE, 0x1, 0x9, 0x5, 0xD, 0x3, 0xB, 0x7, 0xF };
+      return (lut[n & 0b1111] << 4) | lut[n >> 4];
+    }
 
-inline uint8_t zzdec(const uint8_t val)
-{
-  return (uint8_t)(-(int8_t)(val & 1) ^ (val >> 1));
-}
-}
+    inline uint8_t decode_zigzag(const uint8_t val)
+    {
+      return (uint8_t)(-(int8_t)(val & 1) ^ (val >> 1));
+    }
+  }
 
-inline uint8_t to_paranormal(const uint8_t a, const uint8_t b)
-{
-  uint8_t v = (uint8_t)(a) * (uint8_t)(b | 0b10000000);
-  v = _internal::zzdec(_internal::reverse((uint8_t)v)) - 128;
-  v += (b >> 7);
-  return v;
-}
+  inline int8_t to_paranormal(const uint8_t a, const uint8_t b)
+  {
+    uint8_t v = (uint8_t)(a) * (uint8_t)(b | 0b10000000);
+    v = _internal::decode_zigzag(_internal::reverse_bits((uint8_t)v));
+    v += (b >> 7);
+    return (int8_t)v;
+  }
 
-template <size_t bits>
-inline uint8_t to_smooth_paranormal(const uint8_t a, const uint8_t b /* 0 ~ 127 (0 ~ 255 is also fine) */, const uint8_t c /* 0 ~ ((1 << bits) - 1) */)
-{
-  uint8_t v = (uint8_t)(a) * (uint8_t)(b | 0b10000000);
-  v = _internal::zzdec(_internal::reverse((uint8_t)v)) - 128;
-  v += (c - ((1 << (bits - 1)) - 1));
-  return v;
-}
+  template <uint8_t smoothing_bits>
+  inline int8_t to_smooth_paranormal(const uint8_t a, const uint8_t b /* 0 ~ 127 (0 ~ 255 is also fine) */, const uint8_t c /* 0 ~ ((1 << bits) - 1) */)
+  {
+    static_assert(smoothing_bits > 0 && smoothing_bits <= 7, "smoothing bits is valid between 1 and 7");
+
+    uint8_t v = (uint8_t)(a) * (uint8_t)(b | 0b10000000);
+    v = _internal::decode_zigzag(_internal::reverse_bits((uint8_t)v));
+    v += (c - (uint8_t)((1ULL << (smoothing_bits - 1)) - 1));
+    return (int8_t)v;
+  }
+
+  template <uint8_t smoothing_bits>
+  inline int8_t to_smooth_paranormal_safe(const uint8_t a, const uint8_t b, const uint8_t c)
+  {
+    static_assert(smoothing_bits > 0 && smoothing_bits <= 7, "smoothing bits is valid between 1 and 7");
+    return to_smooth_paranormal_safe(a, b, c & (uint8_t)((1ULL << smoothing_bits) - 1));
+  }
 }
 
 #endif // paranormal_distribution_h__
