@@ -53,7 +53,7 @@ namespace paranormal_distribution
   inline int8_t to_smooth_paranormal_safe(const uint8_t a, const uint8_t b, const uint8_t c)
   {
     static_assert(smoothing_bits > 0 && smoothing_bits <= 7, "smoothing bits is valid between 1 and 7");
-    return to_smooth_paranormal_safe(a, b, c & (uint8_t)((1ULL << smoothing_bits) - 1));
+    return to_smooth_paranormal<smoothing_bits>(a, b, c & (uint8_t)((1ULL << smoothing_bits) - 1));
   }
 }
 
