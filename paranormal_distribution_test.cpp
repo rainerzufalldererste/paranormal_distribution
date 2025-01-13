@@ -115,7 +115,7 @@ void test_raw_distribution()
 
   for (size_t a = 0; a < 256; a++)
     for (size_t b = 0; b < 256; b++)
-      hist[(uint8_t)paranormal_distribution::to_paranormal(a, b)]++;
+      hist[(uint8_t)paranormal_distribution::to_paranormal((uint8_t)a, (uint8_t)b)]++;
 
   const int64_t endTicks = __rdtsc();
   const int64_t endNs = get_current_time_ns();
@@ -123,7 +123,7 @@ void test_raw_distribution()
   const size_t totalNs = endNs - startNs;
   const size_t totalTicks = endTicks - startTicks;
 
-  puts("Raw Distribution (No Smoothing)");
+  puts("Plain Distribution (w/o Additional Smoothing)");
   print_histogram(hist);
   printf("\nThrouhgput (including loop): %3.1f its/ms = %3.1f ns/call, %4.2f ticks/it\n\n", iterationCount / (totalNs * 1e-6), (double)totalNs / iterationCount, (double)totalTicks / iterationCount);
 }
@@ -138,7 +138,7 @@ void test_smooth_distribution()
   for (size_t a = 0; a < 256; a++)
     for (size_t b = 0; b < 256; b++)
       for (size_t c = 0; c < (1ULL << smoothing_bits); c++)
-        hist[(uint8_t)paranormal_distribution::to_smooth_paranormal<smoothing_bits>(a, b, c)]++;
+        hist[(uint8_t)paranormal_distribution::to_smooth_paranormal<smoothing_bits>((uint8_t)a, (uint8_t)b, (uint8_t)c)]++;
 
   const int64_t endTicks = __rdtsc();
   const int64_t endNs = get_current_time_ns();
@@ -156,7 +156,6 @@ void test_smooth_distribution()
 int32_t main(void)
 {
   test_raw_distribution();
-  test_smooth_distribution<1>();
   test_smooth_distribution<2>();
   test_smooth_distribution<3>();
   test_smooth_distribution<4>();

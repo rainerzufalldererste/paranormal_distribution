@@ -30,18 +30,20 @@ namespace paranormal_distribution
     }
   }
 
+  // retrieves a 1-bit smoothed paranormal distribution from 2 random bytes.
   inline int8_t to_paranormal(const uint8_t a, const uint8_t b)
   {
     uint8_t v = (uint8_t)(a) * (uint8_t)(b | 0b10000000);
     v = _internal::decode_zigzag(_internal::reverse_bits((uint8_t)v));
-    v += (b >> 7);
+    v += (b >> 7); // without this, the distribution would be skewed towards -1.
     return (int8_t)v;
   }
 
+  // retrieves a smoothed paranormal distribution from 3 random values assuming c is in the specified range.
   template <uint8_t smoothing_bits>
   inline int8_t to_smooth_paranormal(const uint8_t a, const uint8_t b /* 0 ~ 127 (0 ~ 255 is also fine) */, const uint8_t c /* 0 ~ ((1 << bits) - 1) */)
   {
-    static_assert(smoothing_bits > 0 && smoothing_bits <= 7, "smoothing bits is valid between 1 and 7");
+    static_assert(smoothing_bits > 1 && smoothing_bits <= 7, "smoothing bits is valid between 2 and 7");
 
     uint8_t v = (uint8_t)(a) * (uint8_t)(b | 0b10000000);
     v = _internal::decode_zigzag(_internal::reverse_bits((uint8_t)v));
@@ -49,10 +51,11 @@ namespace paranormal_distribution
     return (int8_t)v;
   }
 
+  // retrieves a smoothed paranormal distribution from 3 random bytes.
   template <uint8_t smoothing_bits>
   inline int8_t to_smooth_paranormal_safe(const uint8_t a, const uint8_t b, const uint8_t c)
   {
-    static_assert(smoothing_bits > 0 && smoothing_bits <= 7, "smoothing bits is valid between 1 and 7");
+    static_assert(smoothing_bits > 1 && smoothing_bits <= 7, "smoothing bits is valid between 2 and 7");
     return to_smooth_paranormal<smoothing_bits>(a, b, c & (uint8_t)((1ULL << smoothing_bits) - 1));
   }
 }
