@@ -60,14 +60,39 @@ static void reset_console_color()
 
 static void print_histogram(const size_t(&hist)[256])
 {
+  size_t totalSamples = 0;
+  int64_t valueSum = 0;
+  int64_t valueSqSum = 0;
   size_t maxHeight = 1;
 
-  for (size_t i = 0; i < 256; i++)
-    maxHeight = std::max(maxHeight, hist[i]);
+  for (size_t i = 0; i < std::size(hist); i++)
+  {
+    const size_t samples = hist[i];
+    maxHeight = std::max(maxHeight, samples);
+    totalSamples += samples;
+    const int64_t val = (int64_t)(int8_t)i;
+    valueSum += samples * val;
+    valueSqSum += samples * val * val;
+  }
+
+  const double mean = valueSum / (double)totalSamples;
+  const double stdDev = std::sqrt(valueSqSum / (double)totalSamples - mean * mean);
+
+  printf("Histogram: (mean: %f, std dev: %f)\n", mean, stdDev);
+
+  constexpr bool printValues = false;
+
+  if constexpr (printValues)
+  {
+    for (int64_t i = std::numeric_limits<int8_t>::min(); i <= std::numeric_limits<int8_t>::max(); i++)
+      printf("%" PRIu64 ", ", hist[(uint8_t)(int8_t)i]);
+
+    puts("");
+  }
 
   constexpr size_t barHeight = 32;
   constexpr size_t displayFactor = 4;
-  const size_t heightDiv = maxHeight / barHeight;
+  const size_t heightDiv = std::max<size_t>(1, std::round(maxHeight / (double)barHeight));
   const console_color rangeColors[2] = { console_color::BrightYellow, console_color::BrightCyan };
 
   for (int64_t i = barHeight; i >= 0; i--)
@@ -123,7 +148,7 @@ void test_raw_distribution()
   const size_t totalNs = endNs - startNs;
   const size_t totalTicks = endTicks - startTicks;
 
-  puts("Plain Distribution (w/o Additional Smoothing)");
+  puts("Plain Paranormal Distribution (w/o Additional Smoothing)");
   print_histogram(hist);
   printf("\nThrouhgput (including loop): %3.1f its/ms = %3.1f ns/call, %4.2f ticks/it\n\n", iterationCount / (totalNs * 1e-6), (double)totalNs / iterationCount, (double)totalTicks / iterationCount);
 }
@@ -146,7 +171,49 @@ void test_smooth_distribution()
   const size_t totalNs = endNs - startNs;
   const size_t totalTicks = endTicks - startTicks;
 
-  printf("Smooth Distribution (%" PRIu8 " Bit Smoothing)\n", (uint8_t)smoothing_bits);
+  printf("Smooth Paranormal Distribution (%" PRIu8 " Bit Smoothing)\n", (uint8_t)smoothing_bits);
+  print_histogram(hist);
+  printf("\nThrouhgput (including loop): %3.1f its/ms = %3.1f ns/call, %4.2f ticks/it\n\n", iterationCount / (totalNs * 1e-6), (double)totalNs / iterationCount, (double)totalTicks / iterationCount);
+}
+
+template <uint8_t smoothing_bits>
+void test_distribution2()
+{
+  size_t hist[256] = {};
+  const int64_t startNs = get_current_time_ns();
+  const int64_t startTicks = __rdtsc();
+
+  for (size_t a = 0; a < 256; a++)
+    for (size_t b = 0; b < (1ULL << smoothing_bits); b++)
+      hist[(uint8_t)paranormal_distribution::to_paranormal2<smoothing_bits>((uint8_t)a, (uint8_t)b)]++;
+
+  const int64_t endTicks = __rdtsc();
+  const int64_t endNs = get_current_time_ns();
+  constexpr size_t iterationCount = 256 * (1ULL << smoothing_bits);
+  const size_t totalNs = endNs - startNs;
+  const size_t totalTicks = endTicks - startTicks;
+
+  printf("Paranormal2 Distribution (%" PRIu8 " Bit Smoothing)\n", (uint8_t)smoothing_bits);
+  print_histogram(hist);
+  printf("\nThrouhgput (including loop): %3.1f its/ms = %3.1f ns/call, %4.2f ticks/it\n\n", iterationCount / (totalNs * 1e-6), (double)totalNs / iterationCount, (double)totalTicks / iterationCount);
+}
+
+void test_tiny_distribution()
+{
+  size_t hist[256] = {};
+  const int64_t startNs = get_current_time_ns();
+  const int64_t startTicks = __rdtsc();
+
+  for (size_t a = 0; a < 256; a++)
+    hist[(uint8_t)paranormal_distribution::to_tiny_paranormal((uint8_t)a)]++;
+
+  const int64_t endTicks = __rdtsc();
+  const int64_t endNs = get_current_time_ns();
+  constexpr size_t iterationCount = 256;
+  const size_t totalNs = endNs - startNs;
+  const size_t totalTicks = endTicks - startTicks;
+
+  printf("Tiny Paranormal Distribution\n");
   print_histogram(hist);
   printf("\nThrouhgput (including loop): %3.1f its/ms = %3.1f ns/call, %4.2f ticks/it\n\n", iterationCount / (totalNs * 1e-6), (double)totalNs / iterationCount, (double)totalTicks / iterationCount);
 }
@@ -162,6 +229,15 @@ int32_t main(void)
   test_smooth_distribution<5>();
   test_smooth_distribution<6>();
   test_smooth_distribution<7>();
+
+  test_distribution2<2>();
+  test_distribution2<3>();
+  test_distribution2<4>();
+  test_distribution2<5>();
+  test_distribution2<6>();
+  test_distribution2<7>();
+
+  test_tiny_distribution();
 
   return 0;
 }
